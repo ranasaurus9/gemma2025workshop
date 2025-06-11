@@ -21,14 +21,27 @@ We provide pre-built Docker images for convenience. These images have the respec
 ## Quickstart - Deploying to Cloud Run
 This section guides you through deploying a Cloud Run service using our provided Docker images.  If you've deployed Gemma to Cloud Run from AI Studio, it mirrors this process.    
 
+```bash
+export SERVICE_NAME=gemmaworkshopapp
+export IMAGE=us-docker.pkg.dev/cloudrun/container/gemma/gemma3-12b
+export YOUR_API_KEY=thisismyapikey
+export REGION=us-central1
+```
+Explanation of Variables:
+* `SERVICE_NAME`: The unique name for your Cloud Run service.
+* `IMAGE`: The Docker image to deploy. This can be one of our [pre-built images](#pre-built-docker-images) or an image you built yourself from this repository
+* `YOUR_API_KEY`: **Crucial for authentication**. Set this to a strong, unique API key string of your choice. This key will be required to access your service. See the [Authentication](#authentication) section below for more details. If you're deploying from AI Studio, this is generated on your behalf. Note that this should *not* be an API key re-used from another service.   
+* `REGION`: The Google Cloud region where your Cloud Run service will be deployed (e.g., us-central1). Ensure this region supports the specified GPU type. See [GPU support for Cloud Run services](https://cloud.google.com/run/docs/configuring/services/gpu) for more details.  If you're deploying from AI Studio, this defaults to europe-west1.
+* For other flags and optimizing setting, see [Run LLM inference on Cloud Run GPUs with Gemma 3 and Ollama](https://cloud.google.com/run/docs/tutorials/gpu-gemma-with-ollama#build-and-deploy) for more details.
+
 Use the following `gcloud run deploy` command to deploy your Cloud Run service:
 ```bash
-gcloud run deploy {SERVICE_NAME} \
- --image {IMAGE} \
+gcloud run deploy $SERVICE_NAME \
+ --image $IMAGE \
  --concurrency 4 \
  --cpu 8 \
  --set-env-vars OLLAMA_NUM_PARALLEL=4 \
- --set-env-vars=API_KEY={YOUR_API_KEY} \
+ --set-env-vars=API_KEY=$YOUR_API_KEY \
  --gpu 1 \
  --gpu-type nvidia-l4 \
  --max-instances 1 \
@@ -36,15 +49,8 @@ gcloud run deploy {SERVICE_NAME} \
  --allow-unauthenticated \
  --no-cpu-throttling \
  --timeout=600 \
- --region {REGION}
+ --region $REGION
 ```
-
-Explanation of Variables:
-* `SERVICE_NAME`: The unique name for your Cloud Run service.
-* `IMAGE`: The Docker image to deploy. This can be one of our [pre-built images](#pre-built-docker-images) or an image you built yourself from this repository
-* `YOUR_API_KEY`: **Crucial for authentication**. Set this to a strong, unique API key string of your choice. This key will be required to access your service. See the [Authentication](#authentication) section below for more details. If you're deploying from AI Studio, this is generated on your behalf. Note that this should *not* be an API key re-used from another service.   
-* `REGION`: The Google Cloud region where your Cloud Run service will be deployed (e.g., us-central1). Ensure this region supports the specified GPU type. See [GPU support for Cloud Run services](https://cloud.google.com/run/docs/configuring/services/gpu) for more details.  If you're deploying from AI Studio, this defaults to europe-west1.
-* For other flags and optimizing setting, see [Run LLM inference on Cloud Run GPUs with Gemma 3 and Ollama](https://cloud.google.com/run/docs/tutorials/gpu-gemma-with-ollama#build-and-deploy) for more details.
 
 After successful deployment, the gcloud command will output the Cloud Run service URL. Save this URL as `<cloud_run_url>` for interacting with your service.
 
@@ -125,7 +131,7 @@ client = genai.Client(api_key="<YOUR_API_KEY>", http_options=HttpOptions(base_ur
 
 # Example: Generate content (non-streaming)
 response = client.models.generate_content(
-   model="<model>", # Example: "gemma-3-4b-it" or your custom model name
+   model="gemma-3-12b-it", # Example: "gemma-3-4b-it" or your custom model name
    contents=["How does AI work?"]
 )
 print(response.text)
@@ -133,8 +139,16 @@ print(response.text)
 
 # Example: Stream generate content
 response = client.models.generate_content_stream(
-   model="<model>", # Example: "gemma-3-4b-it" or your custom model name
+   model="gemma-3-12b-it", # Example: "gemma-3-4b-it" or your custom model name
    contents=["Write a story about a magic backpack. You are the narrator of an interactive text adventure game."]
+)
+for chunk in response:
+   print(chunk.text, end="")
+
+# Example: Multilingual
+response = client.models.generate_content_stream(
+   model="gemma-3-12b-it", # Example: "gemma-3-4b-it" or your custom model name
+   contents=["रोटी कैसे पकाएँ"]
 )
 for chunk in response:
    print(chunk.text, end="")
@@ -236,6 +250,32 @@ stream = client.chat(
 
 for chunk in stream:
   print(chunk['message']['content'], end='', flush=True)
+
+#Example: Image Input
+#Download the image - 
+
+from pathlib import Path
+
+# Pass in the path to the image
+path = 'pexels-photo-32457275.jpg'
+
+# You can also pass in base64 encoded image data
+# img = base64.b64encode(Path(path).read_bytes()).decode()
+# or the raw bytes
+img = Path(path).read_bytes()
+response = client.chat(
+  model='gemma3:12b',
+  messages=[
+    {
+      'role': 'user',
+      'content': 'what is the image about',
+      'images': [img],
+    }
+  ],
+)
+
+print(response.message.content)
+
 ```
 
 ## Deploying and Using Fine-Tuned Gemma3 Models
