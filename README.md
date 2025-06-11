@@ -252,7 +252,7 @@ for chunk in stream:
   print(chunk['message']['content'], end='', flush=True)
 
 #Example: Image Input
-#Download the image - 
+#Download the image - https://github.com/ranasaurus9/gemma2025workshop/blob/main/pexels-photo-32457275.jpg
 
 from pathlib import Path
 
